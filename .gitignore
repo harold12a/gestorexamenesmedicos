@@ -1,0 +1,16 @@
+# Secretos
+.env
+.streamlit/secrets.toml
+
+# DATOS REALES: nunca subir a GitHub (datos personales y de salud)
+data/*
+!data/.gitkeep
+*.xlsx
+*.xls
+*.db
+*.sqlite
+
+# Python
+.venv/
+__pycache__/
+*.pyc
