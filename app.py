@@ -28,9 +28,9 @@ def secreto(nombre):
 
 def pedir_clave():
     clave = secreto("APP_PASSWORD")
-    if not clave or MODO_DEMO:
-        if MODO_DEMO:
-            return True
+    if not clave:
+        st.sidebar.warning("DEMO")
+        return True
     if st.session_state.get("acceso"):
         return True
     st.title("🩺 Gestor de Exámenes Médicos Ocupacionales")
