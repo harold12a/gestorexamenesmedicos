@@ -55,6 +55,11 @@ def conexion():
 
 con = conexion()
 
+# MODO DEMO (para publicar en internet): solo datos ficticios y sin importar Excel
+MODO_DEMO = str(secreto("MODO_DEMO") or "").strip().lower() in ("1", "true", "si", "sí")
+if MODO_DEMO and con.execute("SELECT COUNT(*) FROM asignaciones").fetchone()[0] == 0:
+    importar_excel.importar(con, demo.generar(300, "data/datos_demo.xlsx"))
+
 
 # ---------------- Utilidades ----------------
 NOMBRES_COLUMNAS = {
@@ -97,25 +102,29 @@ with st.sidebar:
     total = con.execute("SELECT COUNT(*) FROM asignaciones").fetchone()[0]
     st.caption(f"Registros en la base: **{total}**")
 
-    with st.expander("Importar desde Excel", expanded=total == 0):
-        archivo = st.file_uploader("Archivo .xlsx", type="xlsx")
-        if archivo:
-            contenido = archivo.getvalue()
-            hojas = importar_excel.hojas_disponibles(contenido)
-            hoja = st.selectbox("Hoja", hojas)
-            modo = st.radio("Modo", ["Agregar a lo existente", "Reemplazar todo"], horizontal=False)
-            if st.button("Importar", type="primary", width="stretch"):
-                with st.spinner("Leyendo el Excel…"):
-                    try:
-                        rep = importar_excel.importar(con, contenido, hoja, reemplazar=modo == "Reemplazar todo")
-                        st.session_state.reporte = rep
-                    except Exception as e:
-                        st.error(f"No pude importar: {e}")
+    if MODO_DEMO:
+        st.info("🧪 **Versión de demostración.** Todos los datos son ficticios. "
+                "La importación de Excel está desactivada para proteger datos reales.")
+    if not MODO_DEMO:
+        with st.expander("Importar desde Excel", expanded=total == 0):
+            archivo = st.file_uploader("Archivo .xlsx", type="xlsx")
+            if archivo:
+                contenido = archivo.getvalue()
+                hojas = importar_excel.hojas_disponibles(contenido)
+                hoja = st.selectbox("Hoja", hojas)
+                modo = st.radio("Modo", ["Agregar a lo existente", "Reemplazar todo"], horizontal=False)
+                if st.button("Importar", type="primary", width="stretch"):
+                    with st.spinner("Leyendo el Excel…"):
+                        try:
+                            rep = importar_excel.importar(con, contenido, hoja, reemplazar=modo == "Reemplazar todo")
+                            st.session_state.reporte = rep
+                        except Exception as e:
+                            st.error(f"No pude importar: {e}")
+                    st.rerun()
+            if total == 0 and st.button("Cargar datos de demostración (ficticios)", width="stretch"):
+                ruta = demo.generar(200)
+                st.session_state.reporte = importar_excel.importar(con, ruta)
                 st.rerun()
-        if total == 0 and st.button("Cargar datos de demostración (ficticios)", width="stretch"):
-            ruta = demo.generar(200)
-            st.session_state.reporte = importar_excel.importar(con, ruta)
-            st.rerun()
 
     if "reporte" in st.session_state:
         rep = st.session_state.reporte
