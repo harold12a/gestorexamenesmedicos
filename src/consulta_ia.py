@@ -15,6 +15,8 @@ from . import config, db
 MODELO = "gemini-3.5-flash"
 LIMITE_FILAS = 500
 
+# Descripción de la tabla que se le envía a Gemini. Si cambias columnas en db.py, actualízala aquí.
+
 ESQUEMA_TEXTO = """Tabla: asignaciones (una fila = una solicitud de examen médico ocupacional de un servidor judicial)
 - id INTEGER
 - nombre TEXT (MAYÚSCULAS, nombre completo)
@@ -36,11 +38,13 @@ ESQUEMA_TEXTO = """Tabla: asignaciones (una fila = una solicitud de examen médi
 
 
 def _valores(con, campo):
+    """Valores distintos de una columna (ej. las ciudades) para dárselos a Gemini. Uso interno."""
     filas = con.execute(f"SELECT DISTINCT {campo} FROM asignaciones WHERE {campo} IS NOT NULL ORDER BY 1").fetchall()
     return [f[0] for f in filas]
 
 
 def construir_prompt(con, pregunta):
+    """Paso 1: arma las instrucciones para Gemini (esquema + valores + reglas + pregunta). Usada por preguntar()."""
     return f"""Eres un experto en SQLite. Convierte la pregunta del usuario en UNA sola consulta SQL SELECT.
 
 {ESQUEMA_TEXTO}
@@ -62,6 +66,7 @@ Pregunta: {pregunta}"""
 
 
 def limpiar_sql(texto: str) -> str:
+    """Paso 2: limpia la respuesta de Gemini y rechaza todo lo que no sea una sola consulta de lectura. Usada por preguntar()."""
     sql = re.sub(r"^```(?:sql)?|```$", "", texto.strip(), flags=re.I | re.M).strip().rstrip(";").strip()
     if ";" in sql:
         raise ValueError("La IA devolvió más de una instrucción; la descarté por seguridad.")
@@ -73,6 +78,7 @@ def limpiar_sql(texto: str) -> str:
 
 
 def ejecutar(sql: str, ruta=db.RUTA_DB) -> pd.DataFrame:
+    """Paso 3: ejecuta el SQL con una conexión de solo lectura (aunque la IA se equivoque, no puede modificar nada)."""
     con_ro = db.conectar(ruta, solo_lectura=True)  # aunque la IA se equivoque, no puede modificar nada
     try:
         return pd.read_sql_query(f"SELECT * FROM ({sql}) LIMIT {LIMITE_FILAS}", con_ro)
@@ -81,6 +87,7 @@ def ejecutar(sql: str, ruta=db.RUTA_DB) -> pd.DataFrame:
 
 
 def preguntar(con, pregunta: str, ruta=db.RUTA_DB, cliente=None):
+    """Función principal: pregunta → Gemini → SQL validado → resultado. Devuelve (sql, tabla). Usada por app.py (Preguntar)."""
     """Devuelve (sql, DataFrame)."""
     if cliente is None:
         from google import genai

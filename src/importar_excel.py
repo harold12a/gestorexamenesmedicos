@@ -13,7 +13,7 @@ from datetime import date, datetime, time
 import openpyxl
 
 from . import config, db
-
+# Campo de la base → texto que se busca en el encabezado del Excel. Si el Excel cambia un título, cámbialo aquí.
 PALABRAS_COLUMNA = {  # campo → texto que aparece en el encabezado del Excel
     "nombre": "NOMBRE COMPLETO",
     "documento": "NUMERO DE DOCUMENTO",
@@ -34,11 +34,13 @@ PALABRAS_COLUMNA = {  # campo → texto que aparece en el encabezado del Excel
 
 
 def sin_tildes(txt: str) -> str:
+    """Quita tildes y pasa a mayúsculas: 'Tuluá' → 'TULUA'. Usada también por app.py (búsqueda)."""
     txt = unicodedata.normalize("NFKD", str(txt))
     return "".join(c for c in txt if not unicodedata.combining(c)).upper()
 
 
 def limpiar(v):
+    """Quita espacios sobrantes (incluidos los invisibles de Excel); un texto vacío se vuelve None."""
     if v is None:
         return None
     if isinstance(v, str):
@@ -52,7 +54,7 @@ _MES_NUM = {sin_tildes(m): i + 1 for i, m in enumerate(config.MESES)}
 
 
 def _mes_de_palabra(palabra):
-    """'SEPTIEMBRE', 'SEPT', 'SEP' → 9"""
+    """Nombre o abreviatura de un mes → número: 'SEPTIEMBRE', 'SEPT', 'SEP' → 9. Uso interno."""
     for nombre, num in _MES_NUM.items():
         if len(palabra) >= 3 and nombre.startswith(palabra[:3]) and (palabra in nombre or nombre in palabra or len(palabra) <= 4):
             return num
@@ -97,6 +99,7 @@ def a_fecha(v, anio_defecto=None, mes_defecto=None):
 
 
 def a_hora(v):
+    """Convierte horas como '7:30 a. m.' o '2 PM' a 'HH:MM'; None si no se entiende."""
     v = limpiar(v)
     if v is None:
         return None
@@ -114,6 +117,7 @@ def a_hora(v):
 
 # ---------------- Estado por color ----------------
 def estado_por_color(celda):
+    """Deduce el estado según el color de relleno de la celda (ver config.COLORES_EXCEL); None si el color no está."""
     f = celda.fill
     if not f or not f.fill_type:
         return None
@@ -124,6 +128,7 @@ def estado_por_color(celda):
 
 # ---------------- Normalizaciones ----------------
 def normalizar_ciudad(v):
+    """Ciudad en mayúsculas, sin tildes y con errores corregidos ('PALIMRA' → 'PALMIRA')."""
     v = limpiar(v)
     if not v:
         return None
@@ -132,6 +137,7 @@ def normalizar_ciudad(v):
 
 
 def normalizar_tipo(v):
+    """Tipo de examen en mayúsculas y con errores de escritura corregidos (config.CORRECCIONES_TIPO)."""
     v = limpiar(v)
     if not v:
         return None
@@ -140,6 +146,7 @@ def normalizar_tipo(v):
 
 
 def a_texto_numero(v):
+    """Cédula o celular como texto de solo dígitos: 7178225.0 → '7178225', '318 285 37 97' → '3182853797'."""
     v = limpiar(v)
     if v is None:
         return None
@@ -150,6 +157,7 @@ def a_texto_numero(v):
 
 # ---------------- Lectura de la hoja ----------------
 def _buscar_encabezado(ws):
+    """Busca en las primeras 15 filas la que contiene 'NOMBRE COMPLETO'. Uso interno."""
     for fila in ws.iter_rows(min_row=1, max_row=15):
         textos = [sin_tildes(c.value) if c.value else "" for c in fila]
         if any("NOMBRE COMPLETO" in t for t in textos):
@@ -158,12 +166,14 @@ def _buscar_encabezado(ws):
 
 
 def hojas_disponibles(origen):
+    """Lista los nombres de las hojas del Excel. Usada por app.py (selector de hoja)."""
     wb = openpyxl.load_workbook(origen if not isinstance(origen, bytes) else io.BytesIO(origen), read_only=True)
     return wb.sheetnames
 
 
 def leer_hoja(origen, hoja=None):
-    """origen: ruta o bytes del .xlsx. Devuelve (registros, reporte)."""
+    """Lee y limpia una hoja SIN guardar nada. origen: ruta o bytes del .xlsx.
+    Devuelve (registros, reporte con conteos y problemas). Usada por importar()."""
     if isinstance(origen, bytes):
         origen = io.BytesIO(origen)
     wb = openpyxl.load_workbook(origen, data_only=True)
@@ -258,6 +268,7 @@ def leer_hoja(origen, hoja=None):
 
 
 def importar(con, origen, hoja=None, reemplazar=False):
+    """Lee la hoja y guarda cada registro en la base. Devuelve el reporte. Usada por app.py y por la terminal."""
     registros, reporte = leer_hoja(origen, hoja)
     if reemplazar:
         db.vaciar(con)

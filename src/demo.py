@@ -26,6 +26,7 @@ TIPOS = (["INGRESO - ENFASIS EN OSTEOMUSCULAR"] * 6 + ["PERIÓDICO - ENFASIS EN 
          + ["EGRESO - ENFASIS EN OSTEOMUSCULAR", "RECOMENDACIONES LABORALES PSICOSOCIAL", "INGRESO - CONDUCTORES"])
 ESTADOS_PESOS = {"EMO REALIZADO": 50, "AGENDADO": 15, "NO ASISTIÓ": 10, "FALTA POR AGENDAR": 12,
                  "ENVIADO IPS - PENDIENTE FECHA": 6, "NO SE REALIZÓ": 7}
+# Color de la fila según el estado. Debe coincidir con config.COLORES_EXCEL, o el importador no lo reconocerá.
 RELLENO = {
     "FALTA POR AGENDAR": PatternFill("solid", fgColor=Color(theme=7, tint=0.0)),
     "AGENDADO": PatternFill("solid", fgColor=Color(theme=4, tint=0.6)),
@@ -34,12 +35,14 @@ RELLENO = {
     "NO ASISTIÓ": PatternFill("solid", fgColor="FFFF0000"),
     "NO SE REALIZÓ": PatternFill("solid", fgColor=Color(theme=2, tint=-0.1)),
 }
+# Encabezados iguales a los del Excel real, para que importar_excel.py los encuentre.
 ENCABEZADOS = ["N°", "NOMBRE COMPLETO", "NÚMERO DE DOCUMENTO", "CARGO", "DESPACHO/OFICINA", "CIUDAD",
                "CORREO ELECTRÓNICO", "CELULAR", "FECHA DE REQUERIMIENTO", "NOTAS", "FECHA PROGRAMACIÓN EXAMEN",
                "HORA", "DIRECCIÓN", "TIPO DE EXAMEN"] + config.EXAMENES + ["OBSERVACIONES"]
 
 
 def generar(n=200, ruta="data/datos_demo.xlsx", semilla=7):
+    """Crea el Excel con n personas ficticias y devuelve su ruta (misma semilla = mismos datos). Usada por app.py (demo)."""
     rnd = random.Random(semilla)
     wb = Workbook()
     ws = wb.active

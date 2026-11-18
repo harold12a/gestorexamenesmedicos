@@ -1,4 +1,5 @@
 """Catálogos y reglas del negocio. Si algo cambia (un estado, un examen, una sede), se cambia aquí."""
+"""No depende de nadie. Son los catálogos y las reglas"""
 
 ESTADOS = [
     "FALTA POR AGENDAR",

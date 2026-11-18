@@ -1,5 +1,7 @@
-"""Gestor de Exámenes Médicos Ocupacionales (EMO)
+"""Gestor de Exámenes Médicos Ocupacionales (EMO) — interfaz web con Streamlit.
 Ejecutar:  streamlit run app.py
+Orden: acceso → conexión → barra lateral (importar/exportar) → pestañas (Buscar, Tablero, Nueva, Preguntar, Calidad).
+Ojo: Streamlit vuelve a ejecutar este archivo de arriba a abajo cada vez que el usuario toca algo.
 """
 import io
 import os
@@ -17,6 +19,7 @@ st.set_page_config(page_title="Gestor EMO", page_icon="🩺", layout="wide")
 
 # ---------------- Acceso ----------------
 def secreto(nombre):
+    """Lee una clave del archivo .env o, si no está, de los Secrets de Streamlit Cloud."""
     valor = os.environ.get(nombre)
     if valor:
         return valor
@@ -27,9 +30,11 @@ def secreto(nombre):
 
 
 def pedir_clave():
+    """Muestra el login si hay APP_PASSWORD. Devuelve True si el usuario puede entrar."""
     clave = secreto("APP_PASSWORD")
+
     if not clave:
-        st.sidebar.warning("DEMO")
+        st.sidebar.warning("Sin contraseña configurada (APP_PASSWORD). Úsalo solo en tu computador.")
         return True
     if st.session_state.get("acceso"):
         return True
@@ -50,6 +55,7 @@ if not pedir_clave():
 
 @st.cache_resource
 def conexion():
+    """Abre la base una sola vez y la reutiliza en cada recarga (cache_resource)."""
     return db.conectar()
 
 
@@ -62,6 +68,7 @@ if MODO_DEMO and con.execute("SELECT COUNT(*) FROM asignaciones").fetchone()[0] 
 
 
 # ---------------- Utilidades ----------------
+# Nombre interno de la columna → nombre que ve el usuario en tablas y en el Excel exportado.
 NOMBRES_COLUMNAS = {
     "id": "ID", "nombre": "Nombre", "documento": "Documento", "cargo": "Cargo", "despacho": "Despacho/Oficina",
     "ciudad": "Ciudad", "correo": "Correo", "celular": "Celular", "fecha_requerimiento": "Fecha requerimiento",
@@ -71,12 +78,14 @@ NOMBRES_COLUMNAS = {
 
 
 def a_excel(df: pd.DataFrame) -> bytes:
+    """Convierte una tabla en un archivo Excel en memoria, listo para descargar."""
     buf = io.BytesIO()
     df.rename(columns=NOMBRES_COLUMNAS).to_excel(buf, index=False, sheet_name="Asignaciones")
     return buf.getvalue()
 
 
 def fecha_o_none(txt):
+    """'2026-11-17' → objeto fecha (para los calendarios); None si está vacía o no es válida."""
     try:
         return date.fromisoformat(txt) if txt else None
     except ValueError:
@@ -84,12 +93,14 @@ def fecha_o_none(txt):
 
 
 def chip(estado):
+    """Etiqueta HTML de color para mostrar el estado (colores en config.COLOR_ESTADO)."""
     color = config.COLOR_ESTADO.get(estado, "#6b7280")
     return (f"<span style='background:{color};color:white;padding:2px 10px;border-radius:999px;"
             f"font-size:0.85rem;font-weight:600'>{estado}</span>")
 
 
 def datos() -> pd.DataFrame:
+    """Todas las asignaciones de la base como tabla."""
     return db.todas(con)
 
 
@@ -155,6 +166,8 @@ df = datos()
 
 # ======== BUSCAR Y EDITAR ========
 def ficha(registro: dict, clave: str):
+    """Muestra y permite editar una asignación, con su historial. Se usa en Buscar y en Calidad de datos.
+    `clave` evita que dos formularios de la misma persona choquen en la pantalla."""
     st.markdown(f"### {registro['nombre']} &nbsp; {chip(registro['estado'])}", unsafe_allow_html=True)
     st.caption(f"CC {registro['documento'] or '—'} · {registro['cargo'] or '—'} · {registro['despacho'] or '—'} · "
                f"{registro['ciudad'] or '—'} · {registro['correo'] or '—'} · {registro['celular'] or '—'}")
@@ -202,6 +215,7 @@ with tab_buscar:
     usar_fechas = g1.checkbox("Filtrar por fecha de cita")
     rango = g2.date_input("Rango", value=(date.today(), date.today() + timedelta(days=30)),
                           format="DD/MM/YYYY", disabled=not usar_fechas)
+    # Filtros (lógica de negocio dentro de la interfaz → candidata a moverse a src/ en el Sprint 2).
 
     vista = df.copy()
     if texto:
@@ -233,6 +247,7 @@ with tab_buscar:
 
 # ======== TABLERO ========
 with tab_tablero:
+     # Métricas calculadas aquí con pandas (también candidatas a moverse a src/).
     hoy = date.today().isoformat()
     en7 = (date.today() + timedelta(days=7)).isoformat()
     m = st.columns(5)
@@ -339,6 +354,7 @@ with tab_ia:
 # ======== CALIDAD DE DATOS ========
 with tab_calidad:
     st.caption("Registros que conviene revisar. Haz clic en uno para corregirlo.")
+    # Reglas de calidad: cada entrada es (título visible → registros que cumplen la regla).
     dup_mask = df.duplicated(["documento", "tipo_examen", "fecha_programacion"], keep=False) & df.documento.notna()
     revisiones = {
         "Posibles duplicados (misma cédula, tipo y fecha)": df[dup_mask].sort_values("documento"),
