@@ -4,3 +4,5 @@ openpyxl
 python-dotenv
 google-genai
 pymupdf
+pip install sqlalchemy
+sqlalchemy
