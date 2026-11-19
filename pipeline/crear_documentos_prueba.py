@@ -44,7 +44,7 @@ DOCUMENTOS = {
 
 
 def crear():
-    """Genera los PDFs de prueba, más uno 'escaneado' (sin texto) y un archivo no soportado."""
+    """Genera los PDFs de prueba, más una copia duplicada, uno 'escaneado' (sin texto) y un archivo no soportado."""
     CARPETA.mkdir(exist_ok=True)
     for nombre, datos in DOCUMENTOS.items():
         doc = pymupdf.open()
@@ -52,6 +52,13 @@ def crear():
             doc.new_page().insert_text((50, 72), texto, fontsize=11)
         doc.set_metadata(datos["metadata"])
         doc.save(CARPETA / nombre)
+    # Mismo texto que servicios_ips_demo.pdf pero otro archivo (otro título interno): duplicado de contenido.
+    copia = DOCUMENTOS["servicios_ips_demo.pdf"]
+    doc = pymupdf.open()
+    for texto in copia["paginas"]:
+        doc.new_page().insert_text((50, 72), texto, fontsize=11)
+    doc.set_metadata({**copia["metadata"], "title": "Portafolio de servicios (copia reenviada)"})
+    doc.save(CARPETA / "servicios_ips_demo_copia.pdf")
     # PDF sin texto extraíble: simula un documento escaneado (solo un dibujo).
     doc = pymupdf.open()
     doc.new_page().draw_rect(pymupdf.Rect(50, 50, 300, 200), color=(0, 0, 0), fill=(0.8, 0.8, 0.8))
